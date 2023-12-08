@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Xml;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace XMLAttributeChanger
 {
@@ -13,7 +15,7 @@ namespace XMLAttributeChanger
 
 			Console.WriteLine("Input original file path:");
 			originalXmlFilePath = Console.ReadLine();
-			Console.WriteLine("Input original file path:");
+			Console.WriteLine("Input translated file path:");
 			importingXmlFilePath = Console.ReadLine();
 
 
@@ -26,11 +28,23 @@ namespace XMLAttributeChanger
 			ProcessXmlNodes(originalXml.DocumentElement, importingXml.DocumentElement);
 
 			// Save the modified XML to a new file
-			string modifiedXmlFilePath = "merged.xml";
-			originalXml.Save(modifiedXmlFilePath);
+			
+			
+			originalXml.Save(GetSavingFileName(importingXmlFilePath));
 
 			// Show success message
 			Console.WriteLine("Attribute 'Text' updated successfully!");
+		}
+
+		static string GetSavingFileName(string importingXmlFilePath)
+		{
+			string retVal;
+			string[] pathPiece = importingXmlFilePath.Split('\\');
+
+			pathPiece[pathPiece.Length - 1] = "merged.xml";
+			retVal = string.Join("\\",pathPiece);
+
+			return retVal;
 		}
 
 		static void ProcessXmlNodes(XmlNode originalNode, XmlNode importingNode)
