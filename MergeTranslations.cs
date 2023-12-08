@@ -61,14 +61,15 @@ namespace XMLAttributeChanger
 				if (textAttribute != null)
 				{
 					XmlNode importingMatchingNode;
-					
-					if (uidAttribute != null && uidAttribute.Value.Length != 0)
-					{
-						importingMatchingNode = FindImportingNode(importingNode, uidAttribute.Value);
-					}
-					else if (menuMacroIdAtt != null && menuMacroIdAtt.Value.Length !=0)
+
+
+					if (menuMacroIdAtt != null && menuMacroIdAtt.Value.Length != 0)
 					{
 						importingMatchingNode = FindImportingNode(importingNode, menuMacroIdAtt.Value);
+					}
+					else if (uidAttribute != null && uidAttribute.Value.Length != 0)
+					{
+						importingMatchingNode = FindImportingNode(importingNode, uidAttribute.Value);
 					}
 					else
 					{
