@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Xml;
 using static System.Net.Mime.MediaTypeNames;
@@ -7,14 +8,15 @@ namespace XMLAttributeChanger
 {
 	class Program
 	{
+		//Goddamn why do I used all static... May be I was a lazy ass here...
+		static string originalXmlFilePath = null;
+		static string importingXmlFilePath = null;
+
 		static void Main(string[] args)
 		{
 			// Paths to the original XML file and importing XML file
-			string originalXmlFilePath;
-			string importingXmlFilePath;
-
 			Console.WriteLine("Input original file path:");
-			originalXmlFilePath = Console.ReadLine();
+			Program.originalXmlFilePath = Console.ReadLine();
 			Console.WriteLine("Input translated file path:");
 			importingXmlFilePath = Console.ReadLine();
 
@@ -30,18 +32,18 @@ namespace XMLAttributeChanger
 			// Save the modified XML to a new file
 			
 			
-			originalXml.Save(GetSavingFileName(importingXmlFilePath));
+			originalXml.Save(GetSavingFileName(importingXmlFilePath, "merged.xml"));
 
 			// Show success message
 			Console.WriteLine("Attribute 'Text' updated successfully!");
 		}
 
-		static string GetSavingFileName(string importingXmlFilePath)
+		static string GetSavingFileName(string importingXmlFilePath, string newFileName)
 		{
 			string retVal;
 			string[] pathPiece = importingXmlFilePath.Split('\\');
 
-			pathPiece[pathPiece.Length - 1] = "merged.xml";
+			pathPiece[pathPiece.Length - 1] = newFileName;
 			retVal = string.Join("\\",pathPiece);
 
 			return retVal;
@@ -73,7 +75,7 @@ namespace XMLAttributeChanger
 					}
 					else
 					{
-						importingMatchingNode= null;
+						importingMatchingNode = null;
 					}
 
 					if (importingMatchingNode != null)
@@ -84,6 +86,18 @@ namespace XMLAttributeChanger
 						{
 							textAttribute.Value = importingMatchingNode.Attributes["Text"].Value;
 						}
+					}
+					else
+					{
+						//Here we are writening the delta of the two files (or untranslated lines)
+						int i = 0;
+						string appendText = null;
+						while (originalNode.OuterXml[i] != '>')
+						{
+							appendText += originalNode.OuterXml[i];
+							i++;
+						}
+						File.AppendAllText(GetSavingFileName(importingXmlFilePath, "delta.txt"), appendText + ">\n");
 					}
 				}
 			}
