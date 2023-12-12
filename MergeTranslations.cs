@@ -49,6 +49,7 @@ namespace XMLAttributeChanger
 			return retVal;
 		}
 
+		//Processes all the xmlNodes in the xml file
 		static void ProcessXmlNodes(XmlNode originalNode, XmlNode importingNode)
 		{
 			if (originalNode == null)
@@ -60,10 +61,9 @@ namespace XMLAttributeChanger
 				XmlAttribute uidAttribute = originalNode.Attributes["UID"];
 				XmlAttribute menuMacroIdAtt = originalNode.Attributes["MenuMacroID"];
 
-				if (textAttribute != null)
+				if (textAttribute != null || (originalNode.FirstChild != null && originalNode.FirstChild.NodeType == XmlNodeType.Text))
 				{
 					XmlNode importingMatchingNode;
-
 
 					if (menuMacroIdAtt != null && menuMacroIdAtt.Value.Length != 0)
 					{
@@ -80,11 +80,15 @@ namespace XMLAttributeChanger
 
 					if (importingMatchingNode != null)
 					{
-						// Update the 'Text' attribute of the original node with importing node's 'Text' attribute value
-						textAttribute = originalNode.Attributes["Text"];
 						if (textAttribute != null)
 						{
+							 // Update the 'Text' attribute of the original node with importing node's 'Text' attribute value
 							textAttribute.Value = importingMatchingNode.Attributes["Text"].Value;
+						}
+						else
+						{
+							// Update the Child Node which has a XmlNodeType.Text
+							originalNode.FirstChild.InnerText = importingMatchingNode.FirstChild.InnerText;
 						}
 					}
 					else
@@ -109,6 +113,7 @@ namespace XMLAttributeChanger
 			}
 		}
 
+		//Finds the exact xmlNode that has indentifiers such as UID or MenuMacroID
 		static XmlNode FindImportingNode(XmlNode importingNode, string value)
 		{
 			if (importingNode == null)
