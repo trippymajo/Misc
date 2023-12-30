@@ -16,6 +16,10 @@ I ve been tired of even thinking doing this manually so made this for taking xlf
 .Net Framework 4.8
 Could merge translations from import file to original one. Works with XML, read/write all the nodes of the XML-like file. Could be useful if you change hardcoded Attributes and its a good start for making your rules of merging the XMLs.
 
+### MergeTranslationsv2
+.Net Framework 4.8
+A little changes to the MergeTranslations, which are aimed to 1) Make WLD file from XML 2) Get tanslations on XML from WLD. Here used no arguments, but a dialog-like console, for common people to understand what to do with this program.
+
 ## C/C++ Console
 ### OwnRegExp
 Compile with C++17!
