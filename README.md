@@ -19,8 +19,3 @@ Could merge translations from import file to original one. Works with XML, read/
 ### MergeTranslationsv2
 .Net Framework 4.8
 A little changes to the MergeTranslations, which are aimed to 1) Make WLD file from XML 2) Get tanslations on XML from WLD. Here used no arguments, but a dialog-like console, for common people to understand what to do with this program.
-
-## C/C++ Console
-### OwnRegExp
-Compile with C++17!
-I ve been tired of even thinking doing this manually so made this for taking xlf files and read strings to another file with diffrent code structure (Not XML-like code structure). May be later will be moved to job's project.
