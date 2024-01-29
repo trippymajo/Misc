@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Collections.Generic;
 
 namespace XMLAttributeChanger
 {
@@ -15,8 +16,9 @@ namespace XMLAttributeChanger
 		static string originalFilePath = null;
 		static string importingFilePath = null;
     static StreamWriter wldWriter = null;
+    static Dictionary<string, string> mpTranslations = new Dictionary<string, string>();
 
-		static void Main(string[] args)
+    static void Main(string[] args)
     {
       Console.WriteLine("-xml - port translations 2XMLs2WLD and write a WLD file\n-wld - port translations WLD2XML in a new XML file");
       string option = Console.ReadLine();
@@ -34,7 +36,9 @@ namespace XMLAttributeChanger
       }
 		}
 
-    //Importing translations from WLD file on XML file. WLD->XML. String-by-String comparision
+    /// <summary>
+    /// Importing translations from WLD file on XML file. WLD->XML. String-by-Key in map mpTranslations comparision
+    /// </summary>
     static void PortTranslationsWLD()
     {
       // Paths to the original XML file and importing WLD file
@@ -59,6 +63,7 @@ namespace XMLAttributeChanger
         Console.ReadLine();
       }
 
+      GetTranslationsMap(mpTranslations);
       ProcessXmlNodes(newXml.DocumentElement);
 
       newXml.Save(newXMLFilePath);
@@ -66,7 +71,56 @@ namespace XMLAttributeChanger
       Console.ReadLine();
     }
 
-    //Processes all the xmlNodes in the xml file WLD2XML
+    /// <summary>
+    /// Write all of the translations in wld file into map mpTranslations
+    /// </summary>
+    /// <param name="mpTranslations">Dictionary that accepts Orig-Trans pairs</param>
+    static void GetTranslationsMap(Dictionary<string, string> mpTranslations)
+    {
+      string wld1stString = null;
+      string wld2ndString = null;
+
+      //Open WLD file
+      Stream wldStream = File.OpenRead(importingFilePath);
+      StreamReader wldReader = new StreamReader(wldStream, new UTF8Encoding(true));
+
+
+      // WLD file structure:
+      // ;{{Module(modulename)
+      // "Original string"
+      // "Translated string"
+      //
+      // "Original string"
+      // "Translated string"
+      // ;}}(modulename)
+
+      while (!wldReader.EndOfStream)
+      {
+        wld1stString = wldReader.ReadLine();
+        if (!wld1stString.StartsWith(";") && wld1stString.Length > 2)
+        {
+          wld2ndString = wldReader.ReadLine();
+          if (!wld2ndString.StartsWith(";") && wld2ndString.Length > 2)
+          {
+            wld1stString = wld1stString.Substring(1, wld1stString.Length - 2);
+            wld2ndString = wld2ndString.Substring(1, wld2ndString.Length - 2);
+            try
+            {
+              mpTranslations.Add(wld1stString, wld2ndString);
+            }
+            catch (ArgumentException) { continue; }
+          }
+        }
+      }
+
+      wldReader.Close();
+      wldStream.Close();
+  }
+
+    /// <summary>
+    /// Recursive processesing all of the xmlNodes in the xml file WLD2XML
+    /// </summary>
+    /// <param name="originalNode">A current node to find translations for</param>
     static void ProcessXmlNodes(XmlNode originalNode)
     {
       if (originalNode == null)
@@ -95,38 +149,24 @@ namespace XMLAttributeChanger
       }
     }
 
-    //Find translation for the Attribute
+    /// <summary>
+    /// Finds translation by Key (original string) in dictionary mpTranslations
+    /// </summary>
+    /// <param name="value">A string which is need to find translations for</param>
+    /// <returns>String which will be translation for param value</returns>
     static string FindTranslation(string value)
     {
-      bool bFound = false;
-      string retVal = value;
-      string wld1stString = null;
-
-      //Open WLD file
-      Stream wldStream = File.OpenRead(importingFilePath);
-      StreamReader wldReader = new StreamReader(wldStream, new UTF8Encoding(true));
-
-      while (!wldReader.EndOfStream && !bFound)
+      string retVal;
+      if (mpTranslations.TryGetValue(value, out retVal))
       {
-        wld1stString = wldReader.ReadLine();
-        if (wld1stString.Contains(value))
-        {
-          retVal = wldReader.ReadLine();
-          if (retVal.Length > 2)
-          {
-            retVal = retVal.Substring(1, retVal.Length - 2);
-            bFound = true;
-          }
-        }
+        return retVal;
       }
-
-      wldReader.Close();
-      wldStream.Close();
-
-      return retVal;
+      return value;
     }
 
-    //Importing translations from XML file on WLD file. 2XML->WLD.
+    /// <summary>
+    /// Importing translations from XML file on WLD file. 2XML->WLD.
+    /// </summary>
     static void PortTranslationsXML()
     {
       // Paths to the original XML file and importing XML file
@@ -165,8 +205,10 @@ namespace XMLAttributeChanger
       Console.ReadLine();
     }
 
-    //Making WLD Structure for the outputWldFile.
-    //Params bool isStartModule: 1-Module start structure 2-Module end structure
+    /// <summary>
+    /// Making WLD Structure for the outputWldFile.
+    /// </summary>
+    /// <param name="isStartModule">Indentifier: true-Module start structure false-Module end structure</param>
     static void MakeWLDStructure (bool isStartModule)
     {
       string appendText;
@@ -181,8 +223,13 @@ namespace XMLAttributeChanger
       wldWriter.WriteLine(appendText);
     }
 
-    //Returns new full file path based on importingXmlFilePath
-		static string GetSavingFileName(string filePath, string newFileName)
+    /// <summary>
+    /// Makes output file name
+    /// </summary>
+    /// <param name="filePath">File's filepath to save near with</param>
+    /// <param name="newFileName">New file name to be on output</param>
+    /// <returns>String with full file path for the output file</returns>
+    static string GetSavingFileName(string filePath, string newFileName)
 		{
 			string retVal;
 			string[] pathPiece = filePath.Split('\\');
@@ -193,7 +240,11 @@ namespace XMLAttributeChanger
 			return retVal;
 		}
 
-    //Processes all the xmlNodes in the xml file XML2XML
+    /// <summary>
+    /// Recursevly processes all the xmlNodes in the xml file XML2XML
+    /// </summary>
+    /// <param name="originalNode">Current Original node on process</param>
+    /// <param name="importingNode">Root(main) Node of the importing file</param>
     static void ProcessXmlNodes(XmlNode originalNode, XmlNode importingNode)
 		{
 			if (originalNode == null)
@@ -261,7 +312,12 @@ namespace XMLAttributeChanger
 			}
 		}
 
-    //Finds the exact xmlNode that has indentifiers such as UID or MenuMacroID
+    /// <summary>
+    /// Recursevly finds the exact xmlNode that has indentifiers such as UID or MenuMacroID
+    /// </summary>
+    /// <param name="importingNode">Current importing node to search for the translation in</param>
+    /// <param name="value">The exact value of the UID or MenuMacroID from original file node to find translation for</param>
+    /// <returns>Returns the node where the translation was found based on UID and MenuMacroID values</returns>
     static XmlNode FindImportingNode(XmlNode importingNode, string value)
 		{
 			if (importingNode == null)
