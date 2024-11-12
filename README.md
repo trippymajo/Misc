@@ -6,6 +6,9 @@
 The script basicly allow you to retrive all strings in Qt which were used under translate(), save it as .ts file and after saving it as .xlf file.
 This is useful in case you want strict module separation
 
+### TRXParser
+The script parses .trx file (MSTest resilt file) and outputs information in to the .csv file. With columns such as: Test Name, Result0, Result1 ... It also adds results and new tests automatically when another trx is fed to the same .csv file.
+
 ## C/C++ Console
 ### OwnRegExp
 Compile with C++17!
