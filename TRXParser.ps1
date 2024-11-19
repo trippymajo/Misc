@@ -4,6 +4,9 @@ $testResultsPath = "C:\Users\WowSheCanPS\Desktop\tst"
 $csvResultsPath = "C:\Users\WowSheCanPS\Desktop\tst\testDB.csv"
 $trxName = "Test.trx"
 $csvName = "testDB.csv"
+# Those two vars are what you need to feed in to this script:
+$version = "verHeader"
+$timestamp = "timeHeader"
 
 $arrLinesResult = @()
 
@@ -11,7 +14,7 @@ $arrLinesResult = @()
 # with strict array casting to avoid type problems
 if (Test-Path -Path $csvResultsPath) 
 {
-	$arrLinesResult = @(Get-Content -Path $csvResultsPath)
+    $arrLinesResult = @(Get-Content -Path $csvResultsPath)
 }
 
 # Load TRX file
@@ -21,64 +24,59 @@ $mapTrxResults = @{}
 # Read all TRX lines into map
 foreach ($val in $trxXml.TestRun.Results.UnitTestResult) 
 {
-    $testName = $val.testName
-    $outcome = $val.outcome
-
-    $mapTrxResults[$testName] = $outcome
+    $mapTrxResults[$val.testName] = $val.outcome
 }
 
-$nArrSize = $arrLinesResult.Length
-$nColumnsNum
+$nArrSize = $arrLinesResult.Count
 
-if ($nArrSize -gt 0) # Case when CSV was read
+# Write first lines info for the CSV table
+if ($nArrSize -gt 0) 
 {
-    for ($i = 0; $i -lt $nArrSize; $i++)
-    {
-        $columns = $arrLinesResult[$i] -split ";"
-        $nColumnsNum = $columns.Count
-        $testName = $columns[0]
+    $arrLinesResult[0] += ";$version"
+    $arrLinesResult[1] += ";$timestamp"
+}
+else
+{
+    $arrLinesResult += ";$version"
+    $arrLinesResult += ";$timestamp"
+}
 
-        if ($mapTrxResults.ContainsKey($testName))
-        {
-            $arrLinesResult[$i] += ";"
-            $arrLinesResult[$i] += $mapTrxResults[$testName]
-            $mapTrxResults.Remove($testName)
-        }
-        else
-        {
-            $arrLinesResult[$i] += ";null"
-        }
+$nColumnsNum
+$arrUpdLines = @()
+
+# Read CSV, compare with map, update array for the future write in to file operation
+for ($i = 2; $i -lt $nArrSize; $i++)
+{
+    $columns = $arrLinesResult[$i] -split ";"
+    $nColumnsNum = $columns.Count
+    $testName = $columns[0]
+
+    if ($mapTrxResults.ContainsKey($testName))
+    {
+        $arrUpdLines += "$($arrLinesResult[$i]);$($mapTrxResults[$testName])" # Concat optimization here. Thats why the line overhelming
+        $mapTrxResults.Remove($testName)
+    }
+    else
+    {
+        $arrUpdLines += "$($arrLinesResult[$i]);null"
     }
 }
 
 # Handle new added tests
-if ($mapTrxResults.Count -gt 0)
+foreach ($key in $mapTrxResults.Keys)
 {
-    foreach ($ent in $mapTrxResults.GetEnumerator())
+    $newLine = "$key"
+
+    if ($nArrSize -gt 0) # Align columns with null & write new test results
     {
-        $testName = $ent.Key
-        $testOutcome = $ent.Value
-
-        if ($nArrSize -gt 0) # Align columns O(n^2) in this whole section
-        {
-            $newLine = $testName
-        
-            for ($i = 1; $i -lt $nColumnsNum - 1; $i++)
-            {
-                $newLine += ";null"
-            }
-            $newLine += ";"
-            $newLine += $testOutcome
-
-            $arrLinesResult += $newLine
-        }
-        else # The new CSV case
-        {
-            $newLine = $testName + ";" + "$testOutcome"
-            $arrLinesResult += $newLine
-        }
+        $newLine += ((";" + "null") * ($nColumnsNum - 1)) + ";$($mapTrxResults[$key])"
     }
+    else # The new CSV case
+    {
+        $newLine += ";$($mapTrxResults[$key])"
+    }
+    $arrUpdLines += $newLine
 }
 
-# Write all updated lines back to the CSV
-$arrLinesResult -join "`n" | Set-Content -Path $csvResultsPath
+# Skip headers and write all updated lines back to the CSV
+($arrLinesResult[0..1] + $arrUpdLines) -join "`n" | Set-Content -Path $csvResultsPath
