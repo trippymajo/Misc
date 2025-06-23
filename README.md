@@ -2,12 +2,17 @@
  Miscellaneous small scripts/programs
 
 ## PowerShell Scripts
+
 ### QtTsXlf
 The script basicly allow you to retrive all strings in Qt which were used under translate(), save it as .ts file and after saving it as .xlf file.
 This is useful in case you want strict module separation
 
 ### TRXParser
 The script parses .trx file (MSTest resilt file) and outputs information in to the .csv file. With columns such as: Test Name, Result0, Result1 ... It also adds results and new tests automatically when another trx is fed to the same .csv file.
+
+### GetTextScript
+This script extracts string resources from any function that takes a const wchar_t* or const char* parameter, enabling easier localization of legacy Windows applications that use wchar or char routines.
+It works with xgettext.exe from [GNU page official](https://www.gnu.org/software/gettext/gettext.html)
 
 ## C/C++ Console
 ### OwnRegExp
