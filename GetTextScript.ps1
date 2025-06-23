@@ -1,5 +1,5 @@
 # Root path to source directory
-$g_srcRoot = 'C:\Users\RisingLionOperation\Desktop\nCadC\Version7\sources\xrefmon'
+$g_srcRoot = 'C:\Users\RisingLionOperation\Desktop\App\sources'
 
 # Extensions to parse
 $g_extensions = @('*.cpp','*.h','*.hpp')
