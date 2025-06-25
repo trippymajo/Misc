@@ -8,7 +8,7 @@ $g_extensions = @('*.cpp','*.h','*.hpp')
 $g_xgettext = 'C:\Program Files (x86)\GnuWin32\bin\xgettext.exe'
 
 # xgettext.exe function flags (Functions to get strings from)
-$g_gettextFlags = @('-ktr', '-kSupp_Translate')
+$g_gettextFlags = @('-ktr', '-kSupp_Translate', '--keyword=QObject::tr:1,2c')
 
 # Temp dir for .po and .txt files
 $g_tmpDir = 'C:\Users\RisingLionOperation\Desktop\gettext_tmp'
