@@ -2,13 +2,14 @@
 $g_srcRoot = 'C:\Users\RisingLionOperation\Desktop\App\sources'
 
 # Extensions to parse
-$g_extensions = @('*.cpp','*.h','*.hpp')
+$g_extensions = @('*.cpp','*.h','*.hpp','*.CPP','*.H')
 
 # Path to xgettext.exe
 $g_xgettext = 'C:\Program Files (x86)\GnuWin32\bin\xgettext.exe'
 
 # xgettext.exe function flags (Functions to get strings from)
-$g_gettextFlags = @('-ktr', '-kSupp_Translate', '--keyword=QObject::tr:1,2c')
+#, '-kSupp_Translate'
+$g_gettextFlags = @('-kSupp_Translate')
 
 # Temp dir for .po and .txt files
 $g_tmpDir = 'C:\Users\RisingLionOperation\Desktop\gettext_tmp'
@@ -92,13 +93,51 @@ function xgettextScan()
 
     try
     {
-        $poPath = Join-Path $g_tmpDir "${Module}.po"
+        $files = @(Get-Content $FileListPath)
+        $batchSize = 20
+        $counter = 0
+        $poFiles = @()
 
-        # Run xgettext
-        $files = Get-Content $FileListPath
-        & $g_xgettext @g_gettextFlags -o $poPath $files
+        for ($i = 0; $i -lt $files.Count; $i += $batchSize) 
+        {
+            $batch = $files[$i..([Math]::Min($i + $batchSize - 1, $files.Count - 1))]
+            $poBatchPath = Join-Path $g_tmpDir "${Module}_batch$counter.po"
 
-        return $poPath
+            & $g_xgettext @g_gettextFlags --language=c++ -o $poBatchPath $batch
+
+            if (Test-Path $poBatchPath) 
+            {
+                # If batch was read and .po created all good!
+                $poFiles += $poBatchPath
+                $counter++
+            } 
+            else  # try line by line these file
+            {
+                foreach ($file in $batch)
+                {
+                    $poFilePath = Join-Path $g_tmpDir "${Module}_batch${counter}.po"
+                    & $g_xgettext @g_gettextFlags --language=c++ -o $poFilePath $file
+
+                    if (Test-Path $poFilePath) 
+                    {
+                        $poFiles += $poFilePath
+                        $counter++
+                    } 
+                    else 
+                    {
+                        Write-Host "Problem scanning with gettext $file" -ForegroundColor Yellow
+                    }
+                }
+            }
+        }
+
+        # Check how many .po has been created
+        if ($poFiles.Count -eq 0) 
+        {
+            return $null
+        }
+
+        return $poFiles
     }
     catch
     {
@@ -107,12 +146,12 @@ function xgettextScan()
     }
 }
 
-function makeOutFile()
+function makeWldFile()
 {
     param 
     (
         [string]$Module,
-        [string]$FilePoPath
+        [array]$PoFiles
     )
 
     # Params checks
@@ -121,25 +160,32 @@ function makeOutFile()
         Write-Host "ERROR: Module name is empty."
         return @(), 0
     }
-    if ([string]::IsNullOrWhiteSpace($FilePoPath) -or !(Test-Path $FilePoPath)) 
+    if ($PoFiles.Count -eq 0) 
     {
-        Write-Host "ERROR: .po file not found: $FilePoPath"
+        Write-Host "ERROR: poFiles array is empty!"
         return @(), 0
     }
 
     try
     {
-        # Reading .po file lines
-        $lines = Get-Content $FilePoPath
-
-        # Getting msgid lines with actual strings
+        # Aggregate all msgid strings from ALL batch po files
         $msgids = @()
-        foreach ($line in $lines) 
+        foreach ($poFile in $PoFiles) 
         {
-            if ($line -match '^msgid "(.*)"$') 
+            if (Test-Path $poFile) 
             {
-                $str = $Matches[1]
-                if ($str -ne "") { $msgids += $str }
+                # Reading .po file lines
+                $lines = Get-Content $poFile
+
+                # Getting msgid lines with actual strings
+                foreach ($line in $lines) 
+                {
+                    if ($line -match '^msgid "(.*)"$') 
+                    {
+                        $str = $Matches[1]
+                        if ($str -ne "") { $msgids += $str }
+                    }
+                }
             }
         }
 
@@ -193,16 +239,16 @@ Get-ChildItem -Path $g_srcRoot -Directory | ForEach-Object {
         return 
     }
 
-    $filePoPath = xgettextScan -ModuleDir $moduleDir -Module $module -FileListPath $fileListPath
-    if ($null -eq $filePoPath) 
+    $poFiles = xgettextScan -ModuleDir $moduleDir -Module $module -FileListPath $fileListPath
+    if ($null -eq $poFiles) 
     { 
         Write-Host "Skip $module due xgettextScan returned null."; 
         return 
     }
 
-    $out, $nNumStrings = makeOutFile -Module $module -FilePoPath $filePoPath
+    $out, $nNumStrings = makeWldFile -Module $module -PoFiles $poFiles
 
-    # Adding module to the output file
+    # Adding module to the output wld file
     if ($nNumStrings -gt 0)
     {
         Add-Content -Path $g_outputFile -Value $out -Encoding UTF8
