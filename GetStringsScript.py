@@ -5,6 +5,98 @@ import re
 FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
 FUNCTIONS_ROLES = {"str", "ctx"}
 
+def split_params(params):
+
+
+def find_closing_parenthesis(file_contents, opening_pos):
+    """
+    Find position of closing parenthesis '(' ')'
+
+    Args:
+        file_contents (string): Content of the file to parse
+        opening_pos (int): Position of opening parenthesis
+    Returns:
+        pos (int): Closing position of the ')' parenthesis
+    """
+    parenth_opened = 0
+    in_quotes = False
+    quote_char = ''
+    escape = False
+    for pos in range(opening_pos, len(file_contents)):
+        ch = file_contents[pos]
+        if escape:
+            escape = False
+            continue
+
+        if ch == "\\":
+            escape = True
+            continue
+
+        if ch in ('"', "'"):
+            if in_quotes and ch == quote_char:
+                in_quotes = False
+            elif not in_quotes:
+                in_quotes = True
+                quote_char = ch
+            continue
+
+        if in_quotes:
+            continue
+
+        if ch == '(':
+            parenth_opened += 1
+        elif ch == ')':
+            parenth_opened -= 1
+            if parenth_opened == 0:
+                return pos # Ending position
+
+    return -1 # Not Found. May be Error...
+
+
+def find_func_calls(file_contents, func_to_find):
+    """
+    Parsing code files for functions and strings in it as params
+
+    Args:
+        file_contents (string): Content of the file to parse
+        func_to_find (string): Function name to find in code
+    Returns:
+        matches (start_pos, end_pos, func_params): List of strings with parameters of the matching function name
+    """
+    # Finding exact function
+    matches = []
+    pattern = re.compile(rf"\b{re.escape(func_to_find)}\s*\(")
+
+    for match in pattern.finditer(file_contents):
+        start_pos = match.end()  # Position after first '('
+        end_pos = find_closing_parenthesis(file_contents, start_pos - 1)
+
+        if end_pos == -1:
+            continue
+
+        params_str = file_contents[start_pos:end_pos]
+        matches.append((match.start(), match.end(), params_str))
+
+    return matches
+
+
+def parse_code(parse_file, out_file, funcs_list):
+    """
+    Parsing code files for functions and strings in it as params
+
+    Args:
+        parse_file (string): Full file path to the .ui file to parse
+        out_file (TextIOWrapper): Output file where to write results
+        funcs_list (tuples_list): Functions with roles with positions to search their content in
+    """
+    parse_file = open("file", "r")
+    content = parse_file.read()
+
+    for func in funcs_list:
+        func_params = find_func_calls(content, func[0])
+        splited_params = split_params(func_params)
+
+
 def parse_ui(parse_file, out_file):
     """
     Parsing .ui files for strings in it.
@@ -21,18 +113,6 @@ def parse_ui(parse_file, out_file):
     for match in matches:
         out_file.write(f"{match}\n\n")
 
-def parse_code(parse_file, out_file):
-    """
-    Parsing code files for functions and strings in it as params
-
-    Args:
-        parse_file (string): Full file path to the .ui file to parse
-        out_file (TextIOWrapper): Output file where to write results
-    """
-    parse_file = open("file", "r")
-    content = parse_file.read()
-
-    
 
 def proc_parsing(module, files_list, funcs_list, out_file):
     """
@@ -51,7 +131,7 @@ def proc_parsing(module, files_list, funcs_list, out_file):
         if file.endswith(".ui"):
             parse_ui(file, out_file)
         else:
-            parse_code(file, out_file)
+            parse_code(file, out_file, funcs_list)
 
     out_file.write("### End Module ###\n\n")
 
@@ -105,6 +185,7 @@ def get_files_to_parse(src_path, funcs, is_debug=False):
             print(filepath)
 
     return files_list
+
 
 def parse_func_arg(arg_func_str):
     """
@@ -162,6 +243,7 @@ def parse_func_arg(arg_func_str):
 
         return func, {"str": 1}
 
+
 def main():
     parser = argparse.ArgumentParser(
                         prog="GetStringsScript",
@@ -176,7 +258,7 @@ def main():
             "--funcs",
             nargs="+",
             required=True,
-            help="Functions to get strings from e.g. "translate:ctx=1,str=2, tr:str=1", "doTranslate" ")
+            help="Functions to get strings from e.g. 'translate:ctx=1,str=2, tr:str=1', 'doTranslate' ")
 
     parser.add_argument(
             "--debug",
