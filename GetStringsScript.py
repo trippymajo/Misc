@@ -5,23 +5,78 @@ import re
 FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
 FUNCTIONS_ROLES = {"str", "ctx"}
 
-def split_params(params):
+def split_params(params_str) -> list[str]:
+    """
+    Split function's params in different strings
+
+    Args:
+        params_str (str): Content of the file to parse
+    Returns:
+        splitted_params (list[str]): Splitted in list params of the function
+    """
+    splitted_params = []
+    current_str = ''
+    depth = 0
+    in_quotes = False
+    quote_ch = ''
+    escape = False
+    for ch in params_str:
+        if escape:
+            current_str += ch
+            escape = False
+            continue
+
+        if ch == '\\':
+            current_str += ch
+            escape = True
+            continue
+
+        if ch in ('"', "'"):
+            if in_quotes and ch == quote_ch:
+                in_quotes = False
+            elif not in_quotes:
+                in_quotes = True
+                quote_ch = ch
+            current_str += ch
+            continue
+
+        if in_quotes:
+            current_str += ch
+            continue
+
+        if ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+        elif ch == ',' and depth == 0:
+            splitted_params.append(current_str.strip())
+            current_str = ''
+            continue
+
+        current_str += ch
+
+    # Dont forget last param
+    if current_str.strip():
+        splitted_params.append(current_str.strip())
+
+    return splitted_params
 
 
-def find_closing_parenthesis(file_contents, opening_pos):
+def find_closing_parenthesis(file_contents, opening_pos) -> int:
     """
     Find position of closing parenthesis '(' ')'
 
     Args:
-        file_contents (string): Content of the file to parse
+        file_contents (str): Content of the file to parse
         opening_pos (int): Position of opening parenthesis
     Returns:
         pos (int): Closing position of the ')' parenthesis
     """
     parenth_opened = 0
     in_quotes = False
-    quote_char = ''
+    quote_char = ""
     escape = False
+
     for pos in range(opening_pos, len(file_contents)):
         ch = file_contents[pos]
         if escape:
@@ -43,9 +98,9 @@ def find_closing_parenthesis(file_contents, opening_pos):
         if in_quotes:
             continue
 
-        if ch == '(':
+        if ch == "(":
             parenth_opened += 1
-        elif ch == ')':
+        elif ch == ")":
             parenth_opened -= 1
             if parenth_opened == 0:
                 return pos # Ending position
@@ -53,15 +108,15 @@ def find_closing_parenthesis(file_contents, opening_pos):
     return -1 # Not Found. May be Error...
 
 
-def find_func_calls(file_contents, func_to_find):
+def find_func_calls(file_contents, func_to_find) -> list[str]:
     """
     Parsing code files for functions and strings in it as params
 
     Args:
-        file_contents (string): Content of the file to parse
-        func_to_find (string): Function name to find in code
+        file_contents (str): Content of the file to parse
+        func_to_find (str): Function name to find in code
     Returns:
-        matches (start_pos, end_pos, func_params): List of strings with parameters of the matching function name
+        matches (list[str]): List of strings with parameters of the matching function name
     """
     # Finding exact function
     matches = []
@@ -75,78 +130,96 @@ def find_func_calls(file_contents, func_to_find):
             continue
 
         params_str = file_contents[start_pos:end_pos]
-        matches.append((match.start(), match.end(), params_str))
+        matches.append(params_str)
 
     return matches
 
 
-def parse_code(parse_file, out_file, funcs_list):
+def parse_code(file_path_to_parse, out_file, funcs_list):
     """
     Parsing code files for functions and strings in it as params
 
     Args:
-        parse_file (string): Full file path to the .ui file to parse
+        file_path_to_parse (str): Full file path to the code file to parse
         out_file (TextIOWrapper): Output file where to write results
-        funcs_list (tuples_list): Functions with roles with positions to search their content in
+        funcs_list (tuple[str, dict[str, int]]): Functions with roles with positions to search their content in
     """
-    parse_file = open("file", "r")
-    content = parse_file.read()
+    with open(file_path_to_parse, "r", errors="ignore") as file:
+        content = file.read()
+        for func in funcs_list:
+            for found_params in find_func_calls(content, func[0]):
+                splited_params = split_params(found_params)
 
-    for func in funcs_list:
-        func_params = find_func_calls(content, func[0])
-        splited_params = split_params(func_params)
+                # Write str, ctx as output string
+                # Can be None?
+                str_idx = func[1].get('str')
+                ctx_idx = func[1].get('ctx')
+
+                # Validate idx of the params
+                if str_idx is None or str_idx > len(splited_params):
+                    continue
+
+                if ctx_idx is None:
+                    ctx_out = ""
+                elif ctx_idx > len(splited_params):
+                    continue
+                else:
+                    ctx_out = splited_params[ctx_idx - 1] # Get psition of the context in params
+                    ctx_out += ":"
+
+                str_out = splited_params[str_idx - 1] # Get psition of the string in params
+
+                out_file.write(f"{ctx_out}{str_out}\n\n")
 
 
-def parse_ui(parse_file, out_file):
+def parse_ui(file_path_to_parse, out_file):
     """
     Parsing .ui files for strings in it.
 
     Args:
-        parse_file (string): Full file path to the .ui file to parse
+        file_path_to_parse (string): Full file path to the .ui file to parse
         out_file (TextIOWrapper): Output file where to write results
     """
-    parse_file = open("file", "r")
-    content = parse_file.read()
-
-    matches = re.findall(r"<string>(.*?)</string>", content)
-
-    for match in matches:
-        out_file.write(f"{match}\n\n")
+    with open(file_path_to_parse, "r", errors="ignore") as file:
+        content = file.read()
+        matches = re.findall(r"<string>(.*?)</string>", content)
+        for match in matches:
+            out_file.write(f"{match}\n\n")
 
 
-def proc_parsing(module, files_list, funcs_list, out_file):
+def proc_parsing(module, files_path_list, funcs_list, out_file):
     """
     Orchestrator for Parsing strings from functions in provided files
 
     Args:
-        module (string): Current module name
-        files_list (string_list): All full file paths to be parsed
-        funcs_list (tuples_list): Functions with roles with positions to search their content in
+        module (str): Current module name
+        files_path_list (list[str]): All full file paths to be parsed
+        funcs_list (tuple[str, dict[str, int]]): Functions with roles with positions to search their content in
         out_file (TextIOWrapper): Output file where to write results
     """
 
-    out_file.write("### Begin Module ({module})###\n\n")
+    out_file.write(f"### Begin Module ({module})###\n\n")
 
-    for file in files_list:
-        if file.endswith(".ui"):
-            parse_ui(file, out_file)
+    for file_path in files_path_list:
+        if file_path.endswith(".ui"):
+            parse_ui(file_path, out_file)
         else:
-            parse_code(file, out_file, funcs_list)
+            parse_code(file_path, out_file, funcs_list)
 
     out_file.write("### End Module ###\n\n")
 
 
-def get_files_to_parse(src_path, funcs, is_debug=False):
+def get_files_to_parse(src_path, func_names, is_debug=False) -> list[str]:
     """
     Gets list of files to parse
 
     Args:
-        src_path (string): Path for recursive scanning
-        funcs (string_list): Functions to get strings from
+        src_path (str): Path for recursive scanning
+        func_names (list[str]): Functions to get strings from
         is_debug (bool): special flag to provide extra output
 
     Returns:
-        files_list (string_list): List with paths of the files to scan
+        files_list (list[str]): List with paths of the files to scan
     """
 
     files_list = []
@@ -169,7 +242,7 @@ def get_files_to_parse(src_path, funcs, is_debug=False):
             with open(full_file_path) as f:
                 content = f.read()
 
-                for func in funcs:
+                for func in func_names:
                     if func in content:
                         has_func = True
                         break
@@ -187,12 +260,12 @@ def get_files_to_parse(src_path, funcs, is_debug=False):
     return files_list
 
 
-def parse_func_arg(arg_func_str):
+def parse_func_arg(arg_func_str) -> tuple[str, dict[str, int]]:
     """
     Validates and provides data for argument passed in format function:parameter_to_parse
 
     Args:
-        arg_func_str (string): Argument passed by user
+        arg_func_str (str): Argument passed by user
 
     Returns:
         parsed_arg (func_name, {role1: num1, role2: num2, ...}): parsed argument
@@ -272,16 +345,14 @@ def main():
     for arg in args.funcs:
         funcs_list.append(parse_func_arg(arg))
 
-    out_file = open("CodeStrings.txt", "a+")
-    for dirpath, dirnames, filenames in os.walk(args.src_path):
-        # Need to do module parsing, module = first subpath of the src
-        for subpath in dirnames:
+    with open("CodeStrings.txt", "a+") as out_file:
+        for dirpath, dirnames, filenames in os.walk(args.src_path):
             # Read all files into list
             func_names = [f[0] for f in funcs_list]
-            files_list = get_files_to_parse(args.src_path, func_names, args.debug)
+            files_list = get_files_to_parse(dirpath, func_names, args.debug)
 
             # Parse everything with output in file
-            proc_parsing(subpath, files_list, func_names, out_file)
+            proc_parsing(os.path.basename(dirpath), files_list, funcs_list, out_file)
 
 
 # Entry Point
