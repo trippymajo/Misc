@@ -239,18 +239,16 @@ def get_files_to_parse(src_path, func_names, is_debug=False) -> list[str]:
                 continue
 
             has_func = False
-            with open(full_file_path) as f:
-                content = f.read()
-
-                for func in func_names:
-                    if func in content:
-                        has_func = True
+            with open(full_file_path, "r", errors="ignore") as f:
+                for line in f:
+                    for func in func_names:
+                        if func in line:
+                            has_func = True
+                            break
+                    
+                    if has_func:
+                        files_list.append(full_file_path)
                         break
-
-            if not has_func:
-                continue
-            else:
-                files_list.append(full_file_path)
 
     # Showing debug info
     if is_debug:
