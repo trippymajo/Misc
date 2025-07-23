@@ -1,6 +1,12 @@
 # Misc
  Miscellaneous small scripts/programs
 
+## Python Scripts
+
+### GetStringsScript
+The script allows to parse C++, C functions and Qt's .ui files. Retrieves strings, and saves them in .txt near the script.
+Quick start: python GetStringsScript.py C:\Dir --funcs "tr:str=1" 'translate:str=2,ctx=1' 'tr:str=1'
+
 ## PowerShell Scripts
 
 ### QtTsXlf
