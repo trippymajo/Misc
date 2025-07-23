@@ -2,10 +2,12 @@ import argparse
 import os
 import re
 
+from typing import TextIO
+
 FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
 FUNCTIONS_ROLES = {"str", "ctx"}
 
-def split_params(params_str) -> list[str]:
+def split_params(params_str:str) -> list[str]:
     """
     Split function's params in different strings
 
@@ -62,7 +64,7 @@ def split_params(params_str) -> list[str]:
     return splitted_params
 
 
-def find_closing_parenthesis(file_contents, opening_pos) -> int:
+def find_closing_parenthesis(file_contents: str, opening_pos: int) -> int:
     """
     Find position of closing parenthesis '(' ')'
 
@@ -108,7 +110,7 @@ def find_closing_parenthesis(file_contents, opening_pos) -> int:
     return -1 # Not Found. May be Error...
 
 
-def find_func_calls(file_contents, func_to_find) -> list[str]:
+def find_func_calls(file_contents: str, func_to_find: str) -> list[str]:
     """
     Parsing code files for functions and strings in it as params
 
@@ -135,14 +137,16 @@ def find_func_calls(file_contents, func_to_find) -> list[str]:
     return matches
 
 
-def parse_code(file_path_to_parse, out_file, funcs_list):
+def parse_code(file_path_to_parse: str,
+                out_file: TextIO,
+                funcs_list: list[tuple[str, dict[str,int]]]):
     """
     Parsing code files for functions and strings in it as params
 
     Args:
         file_path_to_parse (str): Full file path to the code file to parse
         out_file (TextIOWrapper): Output file where to write results
-        funcs_list (tuple[str, dict[str, int]]): Functions with roles with positions to search their content in
+        funcs_list (list[tuple[str, dict[str,int]]]): Functions with roles with positions to search their content in
     """
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
@@ -172,7 +176,7 @@ def parse_code(file_path_to_parse, out_file, funcs_list):
                 out_file.write(f"{ctx_out}{str_out}\n\n")
 
 
-def parse_ui(file_path_to_parse, out_file):
+def parse_ui(file_path_to_parse: str, out_file: TextIO):
     """
     Parsing .ui files for strings in it.
 
@@ -187,17 +191,19 @@ def parse_ui(file_path_to_parse, out_file):
             out_file.write(f"{match}\n\n")
 
 
-def proc_parsing(module, files_path_list, funcs_list, out_file):
+def proc_parsing(module: str,
+                files_path_list: list[str],
+                funcs_list: list[tuple[str, dict[str,int]]], 
+                out_file: TextIO):
     """
     Orchestrator for Parsing strings from functions in provided files
 
     Args:
         module (str): Current module name
         files_path_list (list[str]): All full file paths to be parsed
-        funcs_list (tuple[str, dict[str, int]]): Functions with roles with positions to search their content in
+        funcs_list (list[tuple[str, dict[str, int]]]): Functions with roles with positions to search their content in
         out_file (TextIOWrapper): Output file where to write results
     """
-
     out_file.write(f"### Begin Module ({module})###\n\n")
 
     for file_path in files_path_list:
@@ -209,7 +215,7 @@ def proc_parsing(module, files_path_list, funcs_list, out_file):
     out_file.write("### End Module ###\n\n")
 
 
-def get_files_to_parse(src_path, func_names, is_debug=False) -> list[str]:
+def get_files_to_parse(src_path: str, func_names: list[str], is_debug: bool = False) -> list[str]:
     """
     Gets list of files to parse
 
@@ -221,7 +227,6 @@ def get_files_to_parse(src_path, func_names, is_debug=False) -> list[str]:
     Returns:
         files_list (list[str]): List with paths of the files to scan
     """
-
     files_list = []
 
     for dirpath, dirnames, filenames in os.walk(src_path):
@@ -258,7 +263,7 @@ def get_files_to_parse(src_path, func_names, is_debug=False) -> list[str]:
     return files_list
 
 
-def parse_func_arg(arg_func_str) -> tuple[str, dict[str, int]]:
+def parse_func_arg(arg_func_str: str) -> tuple[str, dict[str, int]]:
     """
     Validates and provides data for argument passed in format function:parameter_to_parse
 
