@@ -3,9 +3,10 @@ import os
 import re
 
 from typing import TextIO
+from collections import defaultdict
 
 FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
-FUNCTIONS_ROLES = {"str", "ctx"}
+FUNCTIONS_ROLES = {"str", "ctx"} # Change this to enum later
 
 def split_params(params_str:str) -> list[str]:
     """
@@ -39,7 +40,7 @@ def split_params(params_str:str) -> list[str]:
             elif not in_quotes:
                 in_quotes = True
                 quote_ch = ch
-            current_str += ch
+            #current_str += ch
             continue
 
         if in_quotes:
@@ -51,11 +52,11 @@ def split_params(params_str:str) -> list[str]:
         elif ch == ')':
             depth -= 1
         elif ch == ',' and depth == 0:
-            splitted_params.append(current_str.strip())
+            splitted_params.append(current_str)
             current_str = ''
             continue
 
-        current_str += ch
+        #current_str += ch
 
     # Dont forget last param
     if current_str.strip():
@@ -136,44 +137,53 @@ def find_func_calls(file_contents: str, func_to_find: str) -> list[str]:
 
     return matches
 
-
 def parse_code(file_path_to_parse: str,
                 out_file: TextIO,
-                funcs_list: list[tuple[str, dict[str,int]]]):
+                funcs_dict: dict[str, list[dict[str, int]]]):
     """
     Parsing code files for functions and strings in it as params
 
     Args:
         file_path_to_parse (str): Full file path to the code file to parse
         out_file (TextIOWrapper): Output file where to write results
-        funcs_list (list[tuple[str, dict[str,int]]]): Functions with roles with positions to search their content in
+        funcs_list (dict[str, list[dict[str, int]]]): Functions with roles with positions to search their content in
     """
+
+
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
-        for func in funcs_list:
-            for found_params in find_func_calls(content, func[0]):
+        for func_name, pattern_list in funcs_dict.items():
+            # Sort patterns for each function
+            with_ctx = [p for p in pattern_list if 'ctx' in p]
+            without_ctx = [p for p in pattern_list if 'ctx' not in p]
+            with_ctx_sorted = sorted(with_ctx, key=lambda p: p['ctx'], reverse=True)
+            ordered_patterns = with_ctx_sorted + without_ctx
+
+            for found_params in find_func_calls(content, func_name):
                 splited_params = split_params(found_params)
 
-                # Write str, ctx as output string
-                # Can be None?
-                str_idx = func[1].get('str')
-                ctx_idx = func[1].get('ctx')
+                for pattern in ordered_patterns:
+                    # Write str, ctx as output string
+                    # Can be None?
+                    str_idx = pattern.get('str')
+                    ctx_idx = pattern.get('ctx')
 
-                # Validate idx of the params
-                if str_idx is None or str_idx > len(splited_params):
-                    continue
+                    # Validate idx of the params
+                    if str_idx is None or str_idx < 1 or  str_idx > len(splited_params):
+                        continue
 
-                if ctx_idx is None:
-                    ctx_out = ""
-                elif ctx_idx > len(splited_params):
-                    continue
-                else:
-                    ctx_out = splited_params[ctx_idx - 1] # Get psition of the context in params
-                    ctx_out += ":"
+                    if ctx_idx is None:
+                        ctx_out = ""
+                    elif ctx_idx > len(splited_params):
+                        continue
+                    else:
+                        ctx_out = splited_params[ctx_idx - 1] # Get psition of the context in params
+                        ctx_out += ":"
 
-                str_out = splited_params[str_idx - 1] # Get psition of the string in params
+                    str_out = splited_params[str_idx - 1] # Get psition of the string in params
 
-                out_file.write(f"{ctx_out}{str_out}\n\n")
+                    out_file.write(f"{ctx_out}{str_out}\n\n")
+                    break
 
 
 def parse_ui(file_path_to_parse: str, out_file: TextIO):
@@ -193,7 +203,7 @@ def parse_ui(file_path_to_parse: str, out_file: TextIO):
 
 def proc_parsing(module: str,
                 files_path_list: list[str],
-                funcs_list: list[tuple[str, dict[str,int]]], 
+                funcs_dict: dict[str, list[dict[str, int]]], 
                 out_file: TextIO):
     """
     Orchestrator for Parsing strings from functions in provided files
@@ -201,7 +211,7 @@ def proc_parsing(module: str,
     Args:
         module (str): Current module name
         files_path_list (list[str]): All full file paths to be parsed
-        funcs_list (list[tuple[str, dict[str, int]]]): Functions with roles with positions to search their content in
+        funcs_dict (dict[str, list[dict[str, int]]]): Functions with roles with positions to search their content in
         out_file (TextIOWrapper): Output file where to write results
     """
     out_file.write(f"### Begin Module ({module})###\n\n")
@@ -210,7 +220,7 @@ def proc_parsing(module: str,
         if file_path.endswith(".ui"):
             parse_ui(file_path, out_file)
         else:
-            parse_code(file_path, out_file, funcs_list)
+            parse_code(file_path, out_file, funcs_dict)
 
     out_file.write("### End Module ###\n\n")
 
@@ -343,19 +353,20 @@ def main():
 
     args = parser.parse_args()
 
-    # Populate list of functions (funcs with roles and position information)
-    funcs_list = []
+    # Populate dict of functions (funcs with roles and position information)
+    funcs_patterns = defaultdict(list)
     for arg in args.funcs:
-        funcs_list.append(parse_func_arg(arg))
+        func_name, roles = parse_func_arg(arg)
+        funcs_patterns[func_name].append(roles)
 
-    with open("CodeStrings.txt", "a+") as out_file:
+    with open("CodeStrings.txt", "w+") as out_file:
         for dirpath, dirnames, filenames in os.walk(args.src_path):
             # Read all files into list
-            func_names = [f[0] for f in funcs_list]
+            func_names = list(funcs_patterns.keys())
             files_list = get_files_to_parse(dirpath, func_names, args.debug)
 
             # Parse everything with output in file
-            proc_parsing(os.path.basename(dirpath), files_list, funcs_list, out_file)
+            proc_parsing(os.path.basename(dirpath), files_list, funcs_patterns, out_file)
 
 
 # Entry Point
