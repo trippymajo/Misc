@@ -268,13 +268,9 @@ def get_files_to_parse(src_path: str, func_names: list[str], is_qtui: bool = Fal
 
             pattern = re.compile(rf"\b({'|'.join(map(re.escape, func_names))})\s*\(")
 
-            has_func = False
             with open(full_file_path, "r", errors="ignore") as f:
                 for line in f:
                     if pattern.search(line):
-                        has_func = True
-                    
-                    if has_func:
                         files_list.append(full_file_path)
                         break
 
