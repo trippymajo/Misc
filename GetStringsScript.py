@@ -234,16 +234,17 @@ def proc_parsing(module: str,
     if strs_list:
         out_file.write(f"### Begin Module ({module})###\n\n")
         out_file.writelines(strs_list)
-        out_file.write("### End Module ({module}) ###\n\n")
+        out_file.write(f"### End Module ({module}) ###\n\n")
 
 
-def get_files_to_parse(src_path: str, func_names: list[str], is_debug: bool = False) -> list[str]:
+def get_files_to_parse(src_path: str, func_names: list[str], is_qtui: bool = False, is_debug: bool = False) -> list[str]:
     """
     Gets list of files to parse
 
     Args:
         src_path (str): Path for recursive scanning
         func_names (list[str]): Functions to get strings from
+        is_qtui (bool): Flag to scan .ui files
         is_debug (bool): special flag to provide extra output
 
     Returns:
@@ -261,17 +262,17 @@ def get_files_to_parse(src_path: str, func_names: list[str], is_debug: bool = Fa
 
             # If .ui file, it is another kind of parsing,
             # and no need to check function name in content
-            if filename.lower().endswith(".ui"):
+            if is_qtui and filename.lower().endswith(".ui"):
                 files_list.append(full_file_path)
                 continue
+
+            pattern = re.compile(rf"\b({'|'.join(map(re.escape, func_names))})\s*\(")
 
             has_func = False
             with open(full_file_path, "r", errors="ignore") as f:
                 for line in f:
-                    for func in func_names:
-                        if func in line:
-                            has_func = True
-                            break
+                    if pattern.search(line):
+                        has_func = True
                     
                     if has_func:
                         files_list.append(full_file_path)
@@ -359,6 +360,11 @@ def main():
             help="Functions to get strings from e.g. 'translate:ctx=1,str=2, tr:str=1', 'doTranslate' ")
 
     parser.add_argument(
+            "--qtui",
+            help="Activated qt ui files scannning",
+            action="store_true")
+
+    parser.add_argument(
             "--debug",
             help="Activates debug state of the script, allowing to show some output info",
             action="store_true")
@@ -379,7 +385,7 @@ def main():
 
             # Read all files into list
             func_names = list(funcs_patterns.keys())
-            files_list = get_files_to_parse(module_path, func_names, args.debug)
+            files_list = get_files_to_parse(module_path, func_names, args.qtui, args.debug)
 
             # Parse everything with output in file
             proc_parsing(os.path.basename(module_path), files_list, funcs_patterns, out_file)
