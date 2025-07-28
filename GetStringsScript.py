@@ -138,17 +138,18 @@ def find_func_calls(file_contents: str, func_to_find: str) -> list[str]:
     return matches
 
 def parse_code(file_path_to_parse: str,
-                out_file: TextIO,
-                funcs_dict: dict[str, list[dict[str, int]]]):
+                funcs_dict: dict[str, list[dict[str, int]]]) -> list[str]:
     """
     Parsing code files for functions and strings in it as params
 
     Args:
         file_path_to_parse (str): Full file path to the code file to parse
-        out_file (TextIOWrapper): Output file where to write results
         funcs_list (dict[str, list[dict[str, int]]]): Functions with roles with positions to search their content in
-    """
 
+    Returns:
+        strs_list (list[str]): List with parsed strings from code files
+    """
+    strs_list = []
 
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
@@ -182,23 +183,31 @@ def parse_code(file_path_to_parse: str,
 
                     str_out = splited_params[str_idx - 1] # Get psition of the string in params
 
-                    out_file.write(f"{ctx_out}{str_out}\n\n")
+                    strs_list.append(f"{ctx_out}{str_out}\n\n")
                     break
 
+    return strs_list
 
-def parse_ui(file_path_to_parse: str, out_file: TextIO):
+
+def parse_ui(file_path_to_parse: str) -> list[str]:
     """
     Parsing .ui files for strings in it.
 
     Args:
         file_path_to_parse (string): Full file path to the .ui file to parse
-        out_file (TextIOWrapper): Output file where to write results
+
+    Returns:
+        strs_list (list[str]): List with parsed strings from .ui files
     """
+    strs_list = []
+
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
         matches = re.findall(r"<string>(.*?)</string>", content)
         for match in matches:
-            out_file.write(f"{match}\n\n")
+            strs_list.append(f"{match}\n\n")
+
+    return strs_list
 
 
 def proc_parsing(module: str,
@@ -214,15 +223,18 @@ def proc_parsing(module: str,
         funcs_dict (dict[str, list[dict[str, int]]]): Functions with roles with positions to search their content in
         out_file (TextIOWrapper): Output file where to write results
     """
-    out_file.write(f"### Begin Module ({module})###\n\n")
+    strs_list = []
 
     for file_path in files_path_list:
         if file_path.endswith(".ui"):
-            parse_ui(file_path, out_file)
+            strs_list.extend(parse_ui(file_path))
         else:
-            parse_code(file_path, out_file, funcs_dict)
+            strs_list.extend(parse_code(file_path, funcs_dict))
 
-    out_file.write("### End Module ###\n\n")
+    if strs_list:
+        out_file.write(f"### Begin Module ({module})###\n\n")
+        out_file.writelines(strs_list)
+        out_file.write("### End Module ({module}) ###\n\n")
 
 
 def get_files_to_parse(src_path: str, func_names: list[str], is_debug: bool = False) -> list[str]:
@@ -360,13 +372,17 @@ def main():
         funcs_patterns[func_name].append(roles)
 
     with open("CodeStrings.txt", "w+") as out_file:
-        for dirpath, dirnames, filenames in os.walk(args.src_path):
+        for module in os.listdir(args.src_path):
+            module_path = os.path.join(args.src_path, module)
+            if not os.path.isdir(module_path):
+                continue
+
             # Read all files into list
             func_names = list(funcs_patterns.keys())
-            files_list = get_files_to_parse(dirpath, func_names, args.debug)
+            files_list = get_files_to_parse(module_path, func_names, args.debug)
 
             # Parse everything with output in file
-            proc_parsing(os.path.basename(dirpath), files_list, funcs_patterns, out_file)
+            proc_parsing(os.path.basename(module_path), files_list, funcs_patterns, out_file)
 
 
 # Entry Point
