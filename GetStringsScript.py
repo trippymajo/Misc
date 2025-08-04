@@ -17,11 +17,7 @@ def is_whitespace(s: str) -> bool:
     Returns:
         bool (bool): True - Whitespaced. False - No whitespaced only.
     """
-    try:
-        decoded = s.encode('utf-8').decode('unicode_escape')
-        return not decoded.strip()
-    except UnicodeDecodeError:
-        return False
+    return not re.sub(r'\\[nrtvf]', '', s).strip()
 
 def split_params(params_str:str) -> list[str]:
     """
