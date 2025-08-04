@@ -40,7 +40,8 @@ def split_params(params_str:str) -> list[str]:
             elif not in_quotes:
                 in_quotes = True
                 quote_ch = ch
-            #current_str += ch
+
+            current_str += ch
             continue
 
         if in_quotes:
@@ -59,8 +60,7 @@ def split_params(params_str:str) -> list[str]:
         #current_str += ch
 
     # Dont forget last param
-    if current_str.strip():
-        splitted_params.append(current_str.strip())
+    splitted_params.append(current_str)
 
     return splitted_params
 
