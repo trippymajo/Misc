@@ -220,15 +220,16 @@ def parse_ui(file_path_to_parse: str) -> list[str]:
     Returns:
         strs_list (list[str]): List with parsed strings from .ui files
     """
-    strs_list = []
+    strs_set = set()
 
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
         matches = re.findall(r"<string>(.*?)</string>", content)
         for match in matches:
-            strs_list.append(f"{match}\n\n")
+            strs_set.add(f"{match}\n\n")
 
-    return strs_list
+
+    return [s + "\n\n" for s in strs_set]
 
 
 def proc_parsing(module: str,
