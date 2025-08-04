@@ -157,13 +157,13 @@ def find_func_calls(file_contents: str, func_to_find: str) -> list[str]:
     return matches
 
 def parse_code(file_path_to_parse: str,
-                funcs_dict: dict[str, list[dict[str, int]]]) -> list[str]:
+                ordered_dict: dict[str, list[dict[str, int]]]) -> list[str]:
     """
     Parsing code files for functions and strings in it as params
 
     Args:
         file_path_to_parse (str): Full file path to the code file to parse
-        funcs_list (dict[str, list[dict[str, int]]]): Functions with roles with positions to search their content in
+        ordered_dict (dict[str, list[dict[str, int]]]): Functions with roles with positions to search their content in
 
     Returns:
         strs_list (list[str]): List with parsed strings from code files
@@ -172,17 +172,12 @@ def parse_code(file_path_to_parse: str,
 
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
-        for func_name, pattern_list in funcs_dict.items():
-            # Sort patterns for each function
-            with_ctx = [p for p in pattern_list if 'ctx' in p]
-            without_ctx = [p for p in pattern_list if 'ctx' not in p]
-            with_ctx_sorted = sorted(with_ctx, key=lambda p: p['ctx'], reverse=True)
-            ordered_patterns = with_ctx_sorted + without_ctx
+        for func_name, pattern_list in ordered_dict.items():
 
             for found_params in find_func_calls(content, func_name):
                 splited_params = split_params(found_params)
 
-                for pattern in ordered_patterns:
+                for pattern in pattern_list:
                     # Write str, ctx as output string
                     # Can be None?
                     str_idx = pattern.get('str')
@@ -226,11 +221,31 @@ def parse_ui(file_path_to_parse: str) -> list[str]:
         content = file.read()
         matches = re.findall(r"<string>(.*?)</string>", content)
         for match in matches:
-            strs_set.add(f"{match}\n\n")
+            strs_set.add(f"{match}")
 
 
     return [s + "\n\n" for s in strs_set]
 
+def get_sorted_patterns(funcs_dict: dict[str, list[dict[str, int]]]) -> dict[str, list[dict[str, int]]]:
+    """
+    Sorts patterns to search for in order to handle proper logic for contexts
+
+    Args:
+        funcs_dict (dict[str, list[dict[str, int]]])): Functions with roles with positions to search their content in
+
+    Returns:
+        ordered_patterns (dict[str, list[dict[str, int]]]): Sorted patterns to search in code
+    """
+    ordered_patterns = {}
+
+    for func_name, pattern_list in funcs_dict.items():
+        with_ctx = [p for p in pattern_list if 'ctx' in p]
+        without_ctx = [p for p in pattern_list if 'ctx' not in p]
+        with_ctx_sorted = sorted(with_ctx, key=lambda p: p['ctx'], reverse=True)
+        ordered = with_ctx_sorted + without_ctx
+        ordered_patterns[func_name] = ordered
+
+    return ordered_patterns
 
 def proc_parsing(module: str,
                 files_path_list: list[str],
@@ -247,11 +262,13 @@ def proc_parsing(module: str,
     """
     strs_list = []
 
+    sorted_dict = get_sorted_patterns(funcs_dict)
+
     for file_path in files_path_list:
         if file_path.endswith(".ui"):
             strs_list.extend(parse_ui(file_path))
         else:
-            strs_list.extend(parse_code(file_path, funcs_dict))
+            strs_list.extend(parse_code(file_path, sorted_dict))
 
     if strs_list:
         out_file.write(f"### Begin Module ({module})###\n\n")
@@ -274,6 +291,9 @@ def get_files_to_parse(src_path: str, func_names: list[str], is_qtui: bool = Fal
     """
     files_list = []
 
+    # Compile regexp pattern only once.
+    pattern = re.compile(rf"\b({'|'.join(map(re.escape, func_names))})\s*\(")
+
     for dirpath, dirnames, filenames in os.walk(src_path):
         for filename in filenames:
             # Check if extension is good
@@ -287,8 +307,6 @@ def get_files_to_parse(src_path: str, func_names: list[str], is_qtui: bool = Fal
             if is_qtui and filename.lower().endswith(".ui"):
                 files_list.append(full_file_path)
                 continue
-
-            pattern = re.compile(rf"\b({'|'.join(map(re.escape, func_names))})\s*\(")
 
             with open(full_file_path, "r", errors="ignore") as f:
                 for line in f:
