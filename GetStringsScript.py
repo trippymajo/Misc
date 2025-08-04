@@ -8,6 +8,13 @@ from collections import defaultdict
 FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
 FUNCTIONS_ROLES = {"str", "ctx"} # Change this to enum later
 
+def is_whitespace(s: str) -> bool:
+    try:
+        decoded = s.encode('utf-8').decode('unicode_escape')
+        return not decoded.strip()
+    except UnicodeDecodeError:
+        return False
+
 def split_params(params_str:str) -> list[str]:
     """
     Split function's params in different strings
@@ -35,11 +42,13 @@ def split_params(params_str:str) -> list[str]:
             continue
 
         if ch in ('"', "'"):
-            if in_quotes and ch == quote_ch:
-                in_quotes = False
-            elif not in_quotes:
+            if not in_quotes:
                 in_quotes = True
                 quote_ch = ch
+                continue
+            elif in_quotes and ch == quote_ch:
+                in_quotes = False
+                continue
 
             current_str += ch
             continue
@@ -53,14 +62,16 @@ def split_params(params_str:str) -> list[str]:
         elif ch == ')':
             depth -= 1
         elif ch == ',' and depth == 0:
-            splitted_params.append(current_str)
+            if not is_whitespace(current_str): # check if whitespaces passed
+                splitted_params.append(current_str)
             current_str = ''
             continue
 
         #current_str += ch
 
     # Dont forget last param
-    splitted_params.append(current_str)
+    if not is_whitespace(current_str):
+        splitted_params.append(current_str)
 
     return splitted_params
 
@@ -170,7 +181,9 @@ def parse_code(file_path_to_parse: str,
                     ctx_idx = pattern.get('ctx')
 
                     # Validate idx of the params
-                    if str_idx is None or str_idx < 1 or  str_idx > len(splited_params):
+                    if (str_idx is None
+                        or str_idx < 1
+                        or str_idx > len(splited_params)):
                         continue
 
                     if ctx_idx is None:
@@ -183,7 +196,7 @@ def parse_code(file_path_to_parse: str,
 
                     str_out = splited_params[str_idx - 1] # Get psition of the string in params
 
-                    strs_list.append(f"{ctx_out}{str_out}\n\n")
+                    strs_list.append(f"\"{ctx_out}{str_out}\"\n\n")
                     break
 
     return strs_list
