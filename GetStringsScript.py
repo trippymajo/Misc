@@ -9,6 +9,14 @@ FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
 FUNCTIONS_ROLES = {"str", "ctx"} # Change this to enum later
 
 def is_whitespace(s: str) -> bool:
+    """
+    Check whether string parsed from params is whitespaced
+
+    Args:
+        s (str): String to check
+    Returns:
+        bool (bool): True - Whitespaced. False - No whitespaced only.
+    """
     try:
         decoded = s.encode('utf-8').decode('unicode_escape')
         return not decoded.strip()
@@ -160,7 +168,7 @@ def parse_code(file_path_to_parse: str,
     Returns:
         strs_list (list[str]): List with parsed strings from code files
     """
-    strs_list = []
+    strs_set = set()
 
     with open(file_path_to_parse, "r", errors="ignore") as file:
         content = file.read()
@@ -196,10 +204,10 @@ def parse_code(file_path_to_parse: str,
 
                     str_out = splited_params[str_idx - 1] # Get psition of the string in params
 
-                    strs_list.append(f"\"{ctx_out}{str_out}\"\n\n")
+                    strs_set.add(f"\"{ctx_out}{str_out}\"")
                     break
 
-    return strs_list
+    return [s + "\n\n" for s in strs_set]
 
 
 def parse_ui(file_path_to_parse: str) -> list[str]:
