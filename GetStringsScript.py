@@ -5,6 +5,7 @@ import re
 from typing import TextIO
 from collections import defaultdict
 
+VERSION = "1.7"
 FILE_EXTENSIONS = [".cpp", ".h", ".c", ".hpp" , ".ui"]
 FUNCTIONS_ROLES = {"str", "ctx"} # Change this to enum later
 
@@ -379,7 +380,7 @@ def parse_func_arg(arg_func_str: str) -> tuple[str, dict[str, int]]:
 
 def main():
     parser = argparse.ArgumentParser(
-                        prog="GetStringsScript v1.6",
+                        prog=f"GetStringsScript v{VERSION}",
                         description="Extract strings from functions of the source path",
                         epilog="by Trippy Majo")
 
