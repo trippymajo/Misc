@@ -217,7 +217,7 @@ def parse_ui(file_path_to_parse: str) -> list[str]:
         content = file.read()
         matches = re.findall(r"<string>(.*?)</string>", content)
         for match in matches:
-            strs_set.add(f"{match}")
+            strs_set.add(f"\"{match}\"")
 
 
     return [s + "\n\n" for s in strs_set]
@@ -265,6 +265,8 @@ def proc_parsing(module: str,
             strs_list.extend(parse_ui(file_path))
         else:
             strs_list.extend(parse_code(file_path, sorted_dict))
+
+    strs_list.sort()
 
     if strs_list:
         out_file.write(f"### Begin Module ({module})###\n\n")
@@ -377,7 +379,7 @@ def parse_func_arg(arg_func_str: str) -> tuple[str, dict[str, int]]:
 
 def main():
     parser = argparse.ArgumentParser(
-                        prog="GetStringsScript",
+                        prog="GetStringsScript v1.6",
                         description="Extract strings from functions of the source path",
                         epilog="by Trippy Majo")
 
